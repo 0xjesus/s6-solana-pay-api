@@ -3,6 +3,8 @@ import SolanaController from '../controllers/solana.controller.js';
 
 const router = getRouter();
 
-router.post('/swap', SolanaController.swapTokens);
+// Route to handle POST request to create Solana Pay URL
+router.post('/create-pay-url', SolanaController.createPayURL);
+router.post('/get-transaction-status', SolanaController.getTransactionStatus);
 
-export { router };
+export  {router};

@@ -1,60 +1,60 @@
-import {Connection, PublicKey} from '@solana/web3.js';
-import {getMint} from '@solana/spl-token';
+// SolanaService.js
+import { Connection, PublicKey, Keypair } from '@solana/web3.js';
+import { encodeURL } from '@solana/pay';
+import BigNumber from 'bignumber.js';
 import 'dotenv/config';
-const connection = new Connection(process.env.SOLANA_RPC_URL, 'confirmed');
+
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const MERCHANT_WALLET = new PublicKey(process.env.MERCHANT_WALLET);
+const connection = new Connection(SOLANA_RPC_URL, 'confirmed');
 
 class SolanaService {
-	static async buildSwapTransaction(publicKey, inputMint, outputMint, amount, slippageBps = 0.5, destinationWallet = null,) {
+  // Generate Solana Pay URL with a unique reference for tracking
+  static async createSolanaPayURL(amount) {
+    try {
+      // Convert amount to BigNumber, ensure it's a valid number before converting
+      if (!amount || isNaN(amount)) {
+        throw new Error('Invalid amount specified for the transaction.');
+      }
 
-		try {
-			const inputMintData = await getMint(connection, new PublicKey(inputMint));
+      const amountInSOL = new BigNumber(amount); // Ensure 'amount' is a valid numeric value
 
-			const outputMintData = await getMint(connection, new PublicKey(outputMint));
-			if (!inputMintData || !outputMintData) {
-				throw new Error('Invalid input or output mint');
-			}
+      // Generate a new reference key for each transaction
+      const reference = Keypair.generate().publicKey; // Generate a unique reference for each transaction
 
-			// max of slippage is 10%
-			if (slippageBps > 10) {
-				throw new Error('Slippage must be less than 10%');
-			}
+      const transferRequest = {
+        recipient: MERCHANT_WALLET,
+        amount: amountInSOL,
+        splToken: null,
+        label: 'Payment for Products',
+        message: 'Thank you for your purchase!',
+        memo: 'POS Transaction',
+        reference: [reference], // Add reference to track the transaction
+      };
 
-			const inputDecimals = inputMintData.decimals;
-			const inputAmount = amount * Math.pow(10, inputDecimals);
-			const slippagePercentage = slippageBps * 100;
+      const url = encodeURL(transferRequest);
 
-			const walletPublicKey = new PublicKey(publicKey);
-			let urlGet = `${process.env.JUPITER_QUOTE_API_URL}`;
-			urlGet += `?inputMint=${inputMint}&outputMint=${outputMint}`;
-			urlGet += `&amount=${inputAmount}&slippageBps=${slippagePercentage}`;
-			urlGet += `&swapMode=ExactIn`;
+      return { url, reference: reference.toString() };
+    } catch (error) {
+      console.error(`Failed to create Solana Pay URL: ${error.message}`);
+      throw new Error(`Failed to create Solana Pay URL: ${error.message}`);
+    }
+  }
 
-			const quoteResponseData = await fetch(urlGet);
-			const quoteResponse = await quoteResponseData.json();
+  // Verify the transaction status using the reference key
+  static async getTransactionHash(reference) {
+    try {
+      const transactions = await connection.getSignaturesForAddress(new PublicKey(reference), { limit: 1 });
 
-			const response = await fetch(`${process.env.JUPITER_SWAP_API_URL}`, {
-				method: 'POST',
-				headers: {'Content-Type': 'application/json'},
-				body: JSON.stringify({
-					dynamicComputeUnitLimit: true,
-					prioritizationFeeLamports: 'auto',
-					quoteResponse,
-					userPublicKey: walletPublicKey.toString(),
-					wrapAndUnwrapSol: true,
-				}),
-			});
-			const jsonResponse = await response.json();
+      if (transactions.length === 0) {
+        return null; // No transaction found yet
+      }
 
-			if (jsonResponse?.error || !jsonResponse?.swapTransaction) {
-				throw new Error(jsonResponse.error);
-			}
-			return jsonResponse.swapTransaction;
-		}catch (error) {
-			console.error('Error building swap transaction:', error);
-			throw new Error(error);
-		}
-	}
-
+      return transactions[0].signature;
+    } catch (error) {
+      throw new Error(`Failed to fetch transaction hash: ${error.message}`);
+    }
+  }
 }
 
 export default SolanaService;
