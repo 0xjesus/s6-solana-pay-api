@@ -3,6 +3,37 @@ import SolanaService from '../services/solana.service.js';
 import QRCode from 'qrcode';
 
 class SolanaController {
+  static async uploadAndCreateCollection(req, res) {
+    try {
+      const { fromPubKey, latitude, longitude } = req.body;
+      const file = req.file; // The file is expected to be provided in the request
+
+      if (!file) {
+        return res.respond({
+          data: null,
+          message: 'No file provided.',
+        });
+      }
+
+      // Call the service to upload the image, create metadata, and create the NFT collection
+      const transaction = await MetaplexService.uploadFileAndCreateCollection(
+        fromPubKey,
+        file,
+        latitude,
+        longitude
+      );
+
+      res.respond({
+        data: transaction,
+        message: 'File and metadata uploaded, and collection created successfully.',
+      });
+    } catch (error) {
+      res.respond({
+        data: error.message,
+        message: `Error processing the request: ${error.message}`,
+      });
+    }
+  }
   // Handle request to create Solana Pay URL and generate QR Code
   static async createPayURL(req, res) {
     try {
