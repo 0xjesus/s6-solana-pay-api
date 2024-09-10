@@ -1,7 +1,7 @@
 // SolanaController.js
 import SolanaService from '../services/solana.service.js';
 import QRCode from 'qrcode';
-
+// Import necessary packages
 class SolanaController {
   static async uploadAndCreateCollection(req, res) {
     try {
