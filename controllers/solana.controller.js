@@ -1,5 +1,6 @@
 // SolanaController.js
 import SolanaService from '../services/solana.service.js';
+import MetaplexService from '../services/metaplex.service.js';
 import QRCode from 'qrcode';
 // Import necessary packages
 class SolanaController {
