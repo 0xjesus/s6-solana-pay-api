@@ -22,7 +22,7 @@ import {sol} from "@metaplex-foundation/js";
 import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 
 const s3 = new S3Client({
-  endpoint: "https://sfo3.digitaloceanspaces.com", // Cambia "nyc3" por tu región específica
+  endpoint: "https://nyc3.digitaloceanspaces.com", // Cambia "nyc3" por tu región específica
   forcePathStyle: false,
   region: "us-east-1", // Esta región es requerida por el SDK, pero el endpoint define la ubicación real
   credentials: {
@@ -116,22 +116,15 @@ class MetaplexService {
 		  throw new Error("No se pudo subir el archivo");
 		}
 	  }
-	static async createCollectionTransaction(fromPubKey, metadataString = {}) {
+	static async createCollectionTransaction(fromPubKey, metadataUrl ) {
 		umi.use(signerIdentity(createNoopSigner(fromPubKey)));
 		umi.use(mplCandyMachine());
 		const collectionMint = generateSigner(umi);
-		const metadata = JSON.parse(metadataString);
-		console.log("metadata: ", metadata)
 		const inputConfig = {
 			mint: collectionMint,
-			name: metadata.name || 'My Collection NFT',
-			symbol: metadata.symbol || '',
-			uri: metadata.uri || 'https://example.com/path/to/some/json/metadata.json',
-			description: metadata.description || '',
-			image: metadata.image || '',
-			animation_url: metadata.animation_url || '',
-			external_url: metadata.external_url || '',
-			attributes: metadata.attributes || [],
+			name: 'My Collection NFT',
+			symbol: 'S6-example',
+			uri: metadataUrl,
 			sellerFeeBasisPoints: percentAmount(9.99, 2), // 9.99%
 			isCollection: true,
 		};
