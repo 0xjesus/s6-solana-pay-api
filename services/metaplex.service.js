@@ -19,7 +19,7 @@ import {
 	TokenStandard,
 } from '@metaplex-foundation/mpl-token-metadata'
 import {sol} from "@metaplex-foundation/js";
-import { S3Client } from "@aws-sdk/client-s3";
+import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 
 const s3 = new S3Client({
   endpoint: "https://sfo3.digitaloceanspaces.com", // Cambia "nyc3" por tu región específica
@@ -39,7 +39,7 @@ class MetaplexService {
 		  const bucketName = "blockchainstarter";
 		  const location = "uploads";
 		  const imageKey = `${location}/${file.filename}`;
-	
+
 		  const imageUploadCommand = new PutObjectCommand({
 			Key: imageKey,
 			Body: file.buffer,
@@ -47,12 +47,12 @@ class MetaplexService {
 			ACL: "public-read",
 			ContentType: file.mimetype,
 		  });
-	
+
 		  await s3.send(imageUploadCommand);
-	
+
 		  // Generate the public URL of the uploaded image
 		  const imageUrl = `https://${bucketName}.sfo3.digitaloceanspaces.com/${imageKey}`;
-	
+
 		  // 2. Create metadata with the image URL, latitude, and longitude
 		  const metadata = {
 			name: "NFT with Location Data",
@@ -64,12 +64,12 @@ class MetaplexService {
 			  { trait_type: "Longitude", value: longitude },
 			],
 		  };
-	
+
 		  // Convert metadata to JSON and create a buffer
 		  const metadataJson = JSON.stringify(metadata);
 		  const metadataBuffer = Buffer.from(metadataJson, 'utf-8');
 		  const metadataKey = `${location}/metadata-${Date.now()}.json`;
-	
+
 		  // 3. Upload the metadata file to DigitalOcean Spaces
 		  const metadataUploadCommand = new PutObjectCommand({
 			Key: metadataKey,
@@ -78,15 +78,15 @@ class MetaplexService {
 			ACL: "public-read",
 			ContentType: "application/json",
 		  });
-	
+
 		  await s3.send(metadataUploadCommand);
-	
+
 		  // Generate the public URL of the uploaded metadata file
 		  const metadataUrl = `https://${bucketName}.sfo3.digitaloceanspaces.com/${metadataKey}`;
-	
+
 		  // 4. Call the function to create the NFT collection with the metadata URL
 		  const transaction = await this.createCollectionTransaction(fromPubKey, metadataUrl);
-	
+
 		  return transaction;
 		} catch (error) {
 		  console.error("Error uploading files or creating collection:", error);
@@ -98,7 +98,7 @@ class MetaplexService {
 		  const bucketName = "blockchainstarter"; // Nombre de tu bucket
 		  const location = "uploads"; // Ruta opcional dentro del bucket
 		  const key = `${location}/${file.filename}`;
-	
+
 		  const command = new PutObjectCommand({
 			Key: key,
 			Body: file.buffer,
@@ -106,9 +106,9 @@ class MetaplexService {
 			ACL: "public-read", // Define los permisos del archivo
 			ContentType: file.mimetype,
 		  });
-	
+
 		  await s3.send(command);
-	
+
 		  // Retornar la URL pública del archivo subido
 		  return `https://${bucketName}.sfo3.digitaloceanspaces.com/${key}`;
 		} catch (error) {
