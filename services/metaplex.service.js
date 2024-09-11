@@ -51,7 +51,7 @@ class MetaplexService {
 		  await s3.send(imageUploadCommand);
 
 		  // Generate the public URL of the uploaded image
-		  const imageUrl = `https://${bucketName}.sfo3.digitaloceanspaces.com/${imageKey}`;
+		  const imageUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${imageKey}`;
 
 		  // 2. Create metadata with the image URL, latitude, and longitude
 		  const metadata = {
