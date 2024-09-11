@@ -25,7 +25,9 @@ class SolanaController {
       );
 
       res.respond({
-        data: transaction,
+        data: {
+          transaction,
+        },
         message: 'File and metadata uploaded, and collection created successfully.',
       });
     } catch (error) {
