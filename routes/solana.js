@@ -8,9 +8,10 @@ const upload = multer({ storage });
 
 const router = getRouter();
 
-// Route to handle POST request to create Solana Pay URL
 router.post('/create-pay-url', SolanaController.createPayURL);
 router.post('/get-transaction-status', SolanaController.getTransactionStatus);
 router.post('/upload-and-create-collection', upload.single('file'), SolanaController.uploadAndCreateCollection);
+router.post('/mint-compressed-nfts', upload.single('file'), SolanaController.mintCompressedNFTs);
+router.post('/create-collection', upload.single('file'), SolanaController.createCollection);
 
 export  {router};

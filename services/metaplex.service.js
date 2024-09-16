@@ -22,102 +22,104 @@ import {sol} from "@metaplex-foundation/js";
 import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 
 const s3 = new S3Client({
-  endpoint: "https://nyc3.digitaloceanspaces.com", // Cambia "nyc3" por tu región específica
-  forcePathStyle: false,
-  region: "us-east-1", // Esta región es requerida por el SDK, pero el endpoint define la ubicación real
-  credentials: {
-    accessKeyId: process.env.SPACES_KEY, // Tu clave de acceso
-    secretAccessKey: process.env.SPACES_SECRET // Tu clave secreta
-  }
+	endpoint: "https://nyc3.digitaloceanspaces.com", // Cambia "nyc3" por tu región específica
+	forcePathStyle: false,
+	region: "us-east-1", // Esta región es requerida por el SDK, pero el endpoint define la ubicación real
+	credentials: {
+		accessKeyId: process.env.SPACES_KEY, // Tu clave de acceso
+		secretAccessKey: process.env.SPACES_SECRET // Tu clave secreta
+	}
 });
 const umi = createUmi(process.env.SOLANA_RPC_URL)
 
 class MetaplexService {
 	static async uploadFileAndCreateCollection(fromPubKey, file, latitude, longitude) {
 		try {
-		  // 1. Upload the image to DigitalOcean Spaces
-		  const bucketName = "blockchainstarter";
-		  const location = "uploads";
-          const fileName = file.filename || `uploaded-image-${Date.now()}.jpg`; // Usa file.originalname si no hay filename
-		  const imageKey = `${location}/${fileName}`;
+			// 1. Upload the image to DigitalOcean Spaces
+			const bucketName = "blockchainstarter";
+			const location = "uploads";
+			const fileName = file.filename || `uploaded-image-${Date.now()}.jpg`; // Usa file.originalname si no hay filename
+			const imageKey = `${location}/${fileName}`;
 
-		  const imageUploadCommand = new PutObjectCommand({
-			Key: imageKey,
-			Body: file.buffer,
-			Bucket: bucketName,
-			ACL: "public-read",
-			ContentType: file.mimetype,
-		  });
+			const imageUploadCommand = new PutObjectCommand({
+				Key: imageKey,
+				Body: file.buffer,
+				Bucket: bucketName,
+				ACL: "public-read",
+				ContentType: file.mimetype,
+			});
 
-		  await s3.send(imageUploadCommand);
+			await s3.send(imageUploadCommand);
 
-		  // Generate the public URL of the uploaded image
-		  const imageUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${imageKey}`;
+			// Generate the public URL of the uploaded image
+			const imageUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${imageKey}`;
 
-		  // 2. Create metadata with the image URL, latitude, and longitude
-		  const metadata = {
-			name: "NFT with Location Data",
-			symbol: "NFTLOC",
-			description: "An NFT minted with geolocation data.",
-			image: imageUrl,
-			attributes: [
-			  { trait_type: "Latitude", value: latitude },
-			  { trait_type: "Longitude", value: longitude },
-			],
-		  };
+			// 2. Create metadata with the image URL, latitude, and longitude
+			const metadata = {
+				name: "NFT with Location Data",
+				symbol: "NFTLOC",
+				description: "An NFT minted with geolocation data.",
+				image: imageUrl,
+				attributes: [
+					{trait_type: "Latitude", value: latitude},
+					{trait_type: "Longitude", value: longitude},
+				],
+			};
 
-		  // Convert metadata to JSON and create a buffer
-		  const metadataJson = JSON.stringify(metadata);
-		  const metadataBuffer = Buffer.from(metadataJson, 'utf-8');
-		  const metadataKey = `${location}/metadata-${Date.now()}.json`;
+			// Convert metadata to JSON and create a buffer
+			const metadataJson = JSON.stringify(metadata);
+			const metadataBuffer = Buffer.from(metadataJson, 'utf-8');
+			const metadataKey = `${location}/metadata-${Date.now()}.json`;
 
-		  // 3. Upload the metadata file to DigitalOcean Spaces
-		  const metadataUploadCommand = new PutObjectCommand({
-			Key: metadataKey,
-			Body: metadataBuffer,
-			Bucket: bucketName,
-			ACL: "public-read",
-			ContentType: "application/json",
-		  });
+			// 3. Upload the metadata file to DigitalOcean Spaces
+			const metadataUploadCommand = new PutObjectCommand({
+				Key: metadataKey,
+				Body: metadataBuffer,
+				Bucket: bucketName,
+				ACL: "public-read",
+				ContentType: "application/json",
+			});
 
-		  await s3.send(metadataUploadCommand);
+			await s3.send(metadataUploadCommand);
 
-		  // Generate the public URL of the uploaded metadata file
-		  const metadataUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${metadataKey}`;
+			// Generate the public URL of the uploaded metadata file
+			const metadataUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${metadataKey}`;
 
-		  // 4. Call the function to create the NFT collection with the metadata URL
-		  const transaction = await this.createCollectionTransaction(fromPubKey, metadataUrl);
+			// 4. Call the function to create the NFT collection with the metadata URL
+			const transaction = await this.createCollectionTransaction(fromPubKey, metadataUrl);
 
-		  return transaction;
+			return transaction;
 		} catch (error) {
-		  console.error("Error uploading files or creating collection:", error);
-		  throw new Error("Process could not be completed.");
+			console.error("Error uploading files or creating collection:", error);
+			throw new Error("Process could not be completed.");
 		}
-	  }
+	}
+
 	static async uploadAndReturnUrl(file) {
 		try {
-		  const bucketName = "blockchainstarter"; // Nombre de tu bucket
-		  const location = "uploads"; // Ruta opcional dentro del bucket
-		  const key = `${location}/${file.filename}`;
+			const bucketName = "blockchainstarter"; // Nombre de tu bucket
+			const location = "uploads"; // Ruta opcional dentro del bucket
+			const key = `${location}/${file.filename}`;
 
-		  const command = new PutObjectCommand({
-			Key: key,
-			Body: file.buffer,
-			Bucket: bucketName,
-			ACL: "public-read", // Define los permisos del archivo
-			ContentType: file.mimetype,
-		  });
+			const command = new PutObjectCommand({
+				Key: key,
+				Body: file.buffer,
+				Bucket: bucketName,
+				ACL: "public-read", // Define los permisos del archivo
+				ContentType: file.mimetype,
+			});
 
-		  await s3.send(command);
+			await s3.send(command);
 
-		  // Retornar la URL pública del archivo subido
-		  return `https://${bucketName}.nyc3.digitaloceanspaces.com/${key}`;
+			// Retornar la URL pública del archivo subido
+			return `https://${bucketName}.nyc3.digitaloceanspaces.com/${key}`;
 		} catch (error) {
-		  console.error("Error subiendo archivo:", error);
-		  throw new Error("No se pudo subir el archivo");
+			console.error("Error subiendo archivo:", error);
+			throw new Error("No se pudo subir el archivo");
 		}
-	  }
-	static async createCollectionTransaction(fromPubKey, metadataUrl ) {
+	}
+
+	static async createCollectionTransaction(fromPubKey, metadataUrl) {
 		umi.use(signerIdentity(createNoopSigner(fromPubKey)));
 		umi.use(mplCandyMachine());
 		const collectionMint = generateSigner(umi);
@@ -266,6 +268,83 @@ class MetaplexService {
 		const signedTransaction = await asset.signTransaction(transaction);
 		const serializedTransaction = umi.transactions.serialize(signedTransaction);
 		return Buffer.from(serializedTransaction).toString('base64');
+	}
+
+	static async createCollectionWithMetadata(fromPubKey, file, metadata) {
+		try {
+			// Step 1: Upload the image to DigitalOcean Spaces
+			const bucketName = "blockchainstarter";
+			const location = "uploads";
+			const fileName = file.filename || `uploaded-image-${Date.now()}.jpg`;
+			const imageKey = `${location}/${fileName}`;
+
+			const imageUploadCommand = new PutObjectCommand({
+				Key: imageKey,
+				Body: file.buffer,
+				Bucket: bucketName,
+				ACL: "public-read",
+				ContentType: file.mimetype,
+			});
+
+			await s3.send(imageUploadCommand);
+
+			// Generate the public URL of the uploaded image
+			const imageUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${imageKey}`;
+
+			// Step 2: Use the provided metadata and include the uploaded image URL
+			const completeMetadata = {
+				...JSON.parse(metadata),
+				image: imageUrl, // Add the image URL to the metadata
+			};
+
+			// Convert metadata to JSON and upload it to DigitalOcean Spaces
+			const metadataJson = JSON.stringify(completeMetadata);
+			const metadataBuffer = Buffer.from(metadataJson, 'utf-8');
+			const metadataKey = `${location}/metadata-${Date.now()}.json`;
+
+			const metadataUploadCommand = new PutObjectCommand({
+				Key: metadataKey,
+				Body: metadataBuffer,
+				Bucket: bucketName,
+				ACL: "public-read",
+				ContentType: "application/json",
+			});
+
+			await s3.send(metadataUploadCommand);
+
+			// Generate the public URL of the uploaded metadata file
+			const metadataUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${metadataKey}`;
+
+			// Step 3: Create the NFT collection with the metadata URL
+			umi.use(signerIdentity(createNoopSigner(fromPubKey)));
+			umi.use(mplCandyMachine());
+			const collectionMint = generateSigner(umi);
+			const inputConfig = {
+				mint: collectionMint,
+				name: completeMetadata.name || 'Default Collection Name',
+				symbol: completeMetadata.symbol || 'COLL',
+				uri: metadataUrl,
+				sellerFeeBasisPoints: percentAmount(9.99, 2), // 9.99%
+				isCollection: true,
+			};
+
+			const collectionNFT = await createNft(umi, inputConfig);
+			const {blockhash} = await umi.rpc.getLatestBlockhash();
+			const transaction = await umi.transactions.create({
+				version: 2,
+				blockhash,
+				instructions: collectionNFT.getInstructions(),
+				payer: fromPubKey,
+			});
+
+			// Sign the transaction using collectionMint
+			const signedTransaction = await collectionMint.signTransaction(transaction);
+			const serializedTransaction = umi.transactions.serialize(signedTransaction);
+			return Buffer.from(serializedTransaction).toString('base64');
+		} catch (error) {
+			console.error("Error creating collection with metadata:", error);
+			throw new Error("Could not complete the collection creation process.");
+		}
 	}
 }
 
