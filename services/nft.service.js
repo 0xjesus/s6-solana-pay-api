@@ -69,15 +69,17 @@ class CompressedNFTAirdropService {
 	static async createMerkleTree(fromPubKey) {
 		umi.use(signerIdentity(createNoopSigner(fromPubKey)));
 		const merkleTree = generateSigner(umi);
-
-		// Crear el Merkle Tree y su configuración
+		console.log("MerkleTree Signer:", merkleTree);
 		const builder = await createTree(umi, {
 			merkleTree,
-			payer: new PublicKey(fromPubKey),
 			maxDepth: 14,          // Permite hasta 16,384 NFTs
 			maxBufferSize: 64,     // Configuración para la concurrencia
 		});
+		console.log("Builder object: ", builder);
 		const builtTreeTransaction = await builder.buildWithLatestBlockhash(umi);
+		console.log("Built Tree Transaction:", builtTreeTransaction);
+		/// partially sign the transaction using merkleTree
+		await builtTreeTransaction.partialSign([merkleTree]);
 		const serializedTx = umi.transactions.serialize(builtTreeTransaction)
 		console.log("Resultado del builder create tree:", serializedTx);
 		return Buffer.from(serializedTx).toString('base64');
