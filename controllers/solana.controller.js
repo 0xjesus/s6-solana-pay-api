@@ -130,6 +130,33 @@ class SolanaController {
 		}
 	}
 
+	static async createMerkleTree(req, res) {
+		try {
+			const fromPubKey = req.body.fromPubKey;
+			if (!fromPubKey) {
+				return res.respond({
+					status: 400,
+					data: null,
+					message: 'No wallet address provided.',
+				});
+			}
+			const tree = await CompressedNFTAirdropService.createMerkleTree(fromPubKey);
+			res.respond({
+				data: {
+					transaction: tree,
+				},
+				message: 'Merkle Tree created successfully.',
+			});
+		} catch (error) {
+			console.error('Error creating Merkle Tree:', error);
+			res.respond({
+				status: 500,
+				data: error.message,
+				message: `Error creating Merkle Tree: ${error.message}`,
+			});
+		}
+	}
+
 	static async createCollection(req, res) {
 		try {
 			const {fromPubKey, metadata} = req.body;

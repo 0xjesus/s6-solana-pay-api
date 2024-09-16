@@ -13,5 +13,5 @@ router.post('/get-transaction-status', SolanaController.getTransactionStatus);
 router.post('/upload-and-create-collection', upload.single('file'), SolanaController.uploadAndCreateCollection);
 router.post('/mint-compressed-nfts', upload.single('file'), SolanaController.mintCompressedNFTs);
 router.post('/create-collection', upload.single('file'), SolanaController.createCollection);
-
+router.post('/create-merkle-tree', SolanaController.createMerkleTree);
 export  {router};
