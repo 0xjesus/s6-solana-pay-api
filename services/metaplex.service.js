@@ -38,7 +38,8 @@ class MetaplexService {
 		  // 1. Upload the image to DigitalOcean Spaces
 		  const bucketName = "blockchainstarter";
 		  const location = "uploads";
-		  const imageKey = `${location}/${file.filename}`;
+          const fileName = file.filename || `uploaded-image-${Date.now()}.jpg`; // Usa file.originalname si no hay filename
+		  const imageKey = `${location}/${fileName}`;
 
 		  const imageUploadCommand = new PutObjectCommand({
 			Key: imageKey,
@@ -82,7 +83,7 @@ class MetaplexService {
 		  await s3.send(metadataUploadCommand);
 
 		  // Generate the public URL of the uploaded metadata file
-		  const metadataUrl = `https://${bucketName}.sfo3.digitaloceanspaces.com/${metadataKey}`;
+		  const metadataUrl = `https://${bucketName}.nyc3.digitaloceanspaces.com/${metadataKey}`;
 
 		  // 4. Call the function to create the NFT collection with the metadata URL
 		  const transaction = await this.createCollectionTransaction(fromPubKey, metadataUrl);
@@ -110,7 +111,7 @@ class MetaplexService {
 		  await s3.send(command);
 
 		  // Retornar la URL pública del archivo subido
-		  return `https://${bucketName}.sfo3.digitaloceanspaces.com/${key}`;
+		  return `https://${bucketName}.nyc3.digitaloceanspaces.com/${key}`;
 		} catch (error) {
 		  console.error("Error subiendo archivo:", error);
 		  throw new Error("No se pudo subir el archivo");
