@@ -3,6 +3,7 @@ import SolanaService from '../services/solana.service.js';
 import MetaplexService from '../services/metaplex.service.js';
 import CompressedNFTAirdropService from '../services/nft.service.js';
 import QRCode from 'qrcode';
+import cNftsService from "../services/cnfts.service.js";
 
 // Import necessary packages
 class SolanaController {
@@ -91,15 +92,9 @@ class SolanaController {
 
 	static async mintCompressedNFTs(req, res) {
 		try {
-			const {fromPubKey, collectionMintPubKey, wallets} = req.body;
-			const file = req.file; // The file is expected to be provided in the request
+			const {fromPubKey, collectionMintPubKey, merkleTreeAddr} = req.body;
+			let {wallets} = req.body;
 
-			if (!file) {
-				return res.respond({
-					data: null,
-					message: 'No file provided.',
-				});
-			}
 
 			if (!wallets || wallets.length === 0) {
 				return res.respond({
@@ -108,20 +103,34 @@ class SolanaController {
 				});
 			}
 
+			if (!collectionMintPubKey) {
+				return res.respond({
+					status: 400,
+					data: null,
+					message: 'No collection mint public key provided.',
+				});
+			}
+
+			if(!merkleTreeAddr) {
+				return res.respond({
+					status: 400,
+					data: null,
+					message: 'No Merkle Tree address provided.',
+				});
+			}
+
+
 			// Call the service to mint compressed NFTs and return the encoded transaction
-			const encodedTransaction = await CompressedNFTAirdropService.mintCompressedNFTsToWallets(
+			console.log("Minting compressed NFTs to wallets:", wallets);
+			const encodedTransaction = await cNftsService.mintCompressedNfts(
 				fromPubKey,
-				file,
 				wallets,
-				collectionMintPubKey
+				collectionMintPubKey,
+				merkleTreeAddr
 			);
 
-			res.respond({
-				data: {
-					encodedTransaction,
-				},
-				message: 'Compressed NFTs minted and transaction generated successfully.',
-			});
+
+			res.json({ data: {transaction: encodedTransaction} });
 		} catch (error) {
 			res.respond({
 				data: error.message,
@@ -200,6 +209,30 @@ class SolanaController {
 		}
 	}
 
+	static async verifyCollection(req, res) {
+		const {collectionMint, collectionMintAuthority, merkleTreeAddr} = req.body;
+		try {
+			const transaction = await cNftsService.verifyCollection(collectionMint, collectionMintAuthority, merkleTreeAddr);
+			res.json({ data: {transaction} });
+		} catch (error) {
+			console.error('Error verifying collection:', error);
+			res.status(500).json({ error: error.message });
+		}
+
+	}
+
+	static async verifyCollectionNewFunction(req, res) {
+		const { fromPubKey, collectionMint, mint } = req.body;
+		try {
+			console.log("fromPubKey:", fromPubKey);
+			console.log("mint:", mint);
+			const transaction = await cNftsService.verifyCollectionNewFunction(fromPubKey, collectionMint, mint);
+			res.json({ data: {transaction} });
+		} catch (error) {
+			console.error('Error verifying collection:', error);
+			res.status(500).json({ error: error.message });
+		}
+	}
 }
 
 export default SolanaController;

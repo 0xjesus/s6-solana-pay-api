@@ -1,8 +1,9 @@
-import {createUmi} from '@metaplex-foundation/umi-bundle-defaults';
-import {createNoopSigner, generateSigner, signerIdentity} from '@metaplex-foundation/umi';
-import {PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
-import {createTree, mintToCollectionV1} from '@metaplex-foundation/mpl-bubblegum';
-import {PublicKey, Transaction} from '@solana/web3.js';
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { createNoopSigner, generateSigner, signerIdentity, transactionBuilder, publicKey } from '@metaplex-foundation/umi';
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { createTree, fetchMerkleTree, fetchTreeConfigFromSeeds, mintToCollectionV1, mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
+import {Connection, Transaction} from "@solana/web3.js";
+// Elimina la importación de TransactionBuilder desde @metaplex-foundation/js si no se utiliza
 
 // Inicializar cliente S3 para DigitalOcean Spaces
 const s3 = new S3Client({
@@ -78,63 +79,98 @@ class CompressedNFTAirdropService {
 		console.log("Builder object: ", builder);
 		const builtTreeTransaction = await builder.buildWithLatestBlockhash(umi);
 		console.log("Built Tree Transaction:", builtTreeTransaction);
+		const signedTransaction = await merkleTree.signTransaction(builtTreeTransaction);
+		console.log("Signature Merkle Tree:", signedTransaction);
 		/// partially sign the transaction using merkleTree
-		await builtTreeTransaction.partialSign([merkleTree]);
-		const serializedTx = umi.transactions.serialize(builtTreeTransaction)
-		console.log("Resultado del builder create tree:", serializedTx);
+		const serializedTx = umi.transactions.serialize(signedTransaction)
+		console.log("Encoded Merkle Tree:", Buffer.from(serializedTx).toString('base64'));
 		return Buffer.from(serializedTx).toString('base64');
 	}
 
-	static async mintCompressedNFTsToWallets(fromPubKey, file, wallets, collectionMintPubKey) {
+	static async mintCompressedNFTsToWallets(fromPubKey, wallets, collectionMintPubKey, merkleTreeAddress) {
+		console.log("=== Iniciando mintCompressedNFTsToWallets ===");
+		console.log("Parámetros recibidos:");
+		console.log("fromPubKey:", fromPubKey);
+		console.log("wallets:", wallets);
+		console.log("collectionMintPubKey:", collectionMintPubKey);
+		console.log("merkleTreeAddress:", merkleTreeAddress);
+
 		try {
-			// Subir imagen y metadata
-			const imageUrl = await this.uploadFile(file);
-			const metadataUrl = await this.uploadMetadata(imageUrl);
+			// Opcional: subir el archivo y metadata si es necesario
+			// const imageUrl = await this.uploadFile(file);
+			// const metadataUrl = await this.uploadMetadata(imageUrl);
+			const imageUrl = 'https://blockchainstarter.nyc3.digitaloceanspaces.com/uploads/uploaded-image-1726526965762.jpg';
+			const metadataUrl = 'https://blockchainstarter.nyc3.digitaloceanspaces.com/uploads/metadata-1726526966269';
+			console.log("Image URL:", imageUrl);
+			console.log("Metadata URL:", metadataUrl);
 
-			// Configuración de signer
-			umi.use(signerIdentity(generateSigner(umi)));
+			// Crear una nueva instancia de umi dentro del método para evitar acumulación de middlewares
+			const umiInstance = createUmi(process.env.SOLANA_RPC_URL);
+			console.log("Instancia de Umi creada.");
+			umiInstance.use(signerIdentity(createNoopSigner(fromPubKey)));
+			umiInstance.use(mplBubblegum());
+			console.log("Middlewares agregados a Umi.");
 
-			// Crear un Merkle Tree (Bubblegum Tree) para los NFTs comprimidos
-			const merkleTreeAddress = await this.createMerkleTree();
+			let newTxBuilder = transactionBuilder();
+			console.log("Transaction builder inicializado.");
 
-			// Iterar sobre cada wallet y mintear un NFT comprimido a la colección
-			const instructions = [];
+			// Fetch Merkle Tree
+			console.log("Fetching Merkle Tree desde:", merkleTreeAddress);
+			const merkleTreeAccount = await fetchMerkleTree(umiInstance, merkleTreeAddress);
+			console.log("Merkle Tree Account:", merkleTreeAccount);
+
+			// Fetch Tree Config
+			console.log("Fetching Tree Config desde seeds.");
+			const treeConfig = await fetchTreeConfigFromSeeds(umiInstance, {
+				merkleTree: merkleTreeAddress,
+				header: merkleTreeAccount.header
+			});
+			console.log("Tree Config:", treeConfig);
+
+			console.log("Collection Mint PubKey:", collectionMintPubKey);
+			console.log("Merkle Tree Address:", merkleTreeAddress);
 
 			for (const wallet of wallets) {
+				console.log("Procesando wallet:", wallet);
 				// Crear la instrucción de minting a la colección
-				const mintToCollectionIx = await mintToCollectionV1(umi, {
-					leafOwner: wallet,
-					merkleTree: merkleTreeAddress,
-					collectionMint: new PublicKey(collectionMintPubKey),
+				const mintToCollectionIx = await mintToCollectionV1(umiInstance, {
+					leafOwner: publicKey(wallet),
+					merkleTree: publicKey(merkleTreeAddress),
+					collectionMint: publicKey(collectionMintPubKey),
 					metadata: {
 						name: 'Compressed NFT Airdrop',
 						uri: metadataUrl,
 						sellerFeeBasisPoints: 500, // 5%
-						collection: {key: collectionMintPubKey, verified: false},
+						collection: {key: publicKey(collectionMintPubKey), verified: true},
+						collectionAuthority: umiInstance.identity.publicKey,
 						creators: [
-							{address: umi.identity.publicKey, verified: false, share: 100},
+							{address: umiInstance.identity.publicKey, verified: true, share: 100},
 						],
 					},
 				});
-
-				instructions.push(mintToCollectionIx);
+				console.log(`Instrucción creada para wallet: ${wallet}`);
+				//console.log(" Mint to Collection Instruction:", mintToCollectionIx.getInstructions());
+				newTxBuilder = newTxBuilder.add(mintToCollectionIx);
+				console.log("Instrucción añadida al transaction builder.");
 			}
 
-			// Crear la transacción y serializarla para devolverla como base64
-			const {blockhash} = await umi.rpc.getLatestBlockhash();
-			const transaction = new Transaction({recentBlockhash: blockhash}).add(...instructions);
-			transaction.feePayer = new PublicKey(fromPubKey);
+			// await newTxBuilder.setFeePayer(fromPubKey);
+			console.log("Construyendo la transacción con las instrucciones agregadas.");
+			const transaction = await newTxBuilder.buildWithLatestBlockhash(umiInstance);
+			console.log("Transacción construida:", transaction);
 
-			// Serializar la transacción sin firmar
-			const serializedTransaction = umi.transactions.serialize(transaction);
+			const serializedTransaction = umiInstance.transactions.serialize(transaction);
+			console.log("Transacción serializada:", serializedTransaction);
 
-			// Devolver la transacción codificada en base64
-			return Buffer.from(serializedTransaction).toString('base64');
+			const encodedTransaction = Buffer.from(serializedTransaction).toString('base64');
+			console.log("Transacción encodificada (base64):", encodedTransaction);
+
+			console.log("=== Fin de mintCompressedNFTsToWallets ===");
+			return encodedTransaction;
 		} catch (error) {
-			console.error("Error during compressed NFT airdrop:", error);
+			console.error("Error durante el airdrop de NFT comprimidos:", error);
 			throw new Error("Compressed NFT Airdrop failed.");
 		}
 	}
 }
-
 export default CompressedNFTAirdropService;

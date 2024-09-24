@@ -19,7 +19,7 @@
     "@solana/spl-account-compression": "^0.2.1",
     "@solana/spl-token": "^0.4.8",
     "@solana/spl-token-registry": "^0.2.4574",
-    "@solana/web3.js": "^1.95.2",
+    "@solana/web3.js": "^1.95.3",
     "@thewebchimp/primate": "^1.3.8-entities",
     "bignumber.js": "^9.1.2",
     "dotenv": "^16.4.5",
